@@ -18,3 +18,12 @@ data.frame(Mean.CPU.Time = a <- rowMeans(times) )#, Compared.to.Solution.2 = a/a
 
 #meanF2 <- function() {rowMeans(DT)[DT$SEX==1]; rowMeans(DT)[DT$SEX==2]} #error
 #system.time(meanF2())
+
+# > times <- compare.mean(1000)
+# > data.frame(Mean.CPU.Time = a <- rowMeans(times) )
+# Mean.CPU.Time
+# Solution_1       0.00245
+# Solution_2       0.03641
+# Solution_3       0.00028
+# Solution_5       0.00830
+# Solution_6       0.00179
