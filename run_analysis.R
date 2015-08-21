@@ -1,14 +1,3 @@
-# The purpose of this project is to demonstrate your ability to collect, work with, and clean a data set.
-# The goal is to prepare tidy data that can be used for later analysis.
-# You will be graded by your peers on a series of yes/no questions related to the project.
-# You will be required to submit: 
-#   1) a tidy data set as described below, 
-#   2) a link to a Github repository with your script for performing the analysis, and 
-#   3) a code book that describes the variables, the data, and any transformations 
-#      or work that you performed to clean up the data called CodeBook.md.
-# You should also include a README.md in the repo with your scripts. 
-# This repo explains how all of the scripts work and how they are connected.  
-# 
 # One of the most exciting areas in all of data science right now is wearable computing see for example this article.
 # Companies like Fitbit, Nike, and Jawbone Up are racing to develop the most advanced algorithms to attract new users.
 # The data linked to from the course website represent data collected from the accelerometers from the Samsung Galaxy 
@@ -21,10 +10,10 @@
 #   https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip 
 # 
 # You should create one R script called run_analysis.R that does the following. 
-# 1. Merges the training and the test sets to create one data set.
-# 2. Extracts only the measurements on the mean and standard deviation for each measurement. 
-# 3. Uses descriptive activity names to name the activities in the data set
-# 4. Appropriately labels the data set with descriptive variable names. 
+# 1. Merges the training and the test sets to create one data set. => OK
+# 2. Extracts only the measurements on the mean and standard deviation for each measurement. => OK
+# 3. Uses descriptive activity names to name the activities in the data set => OK????
+# 4. Appropriately labels the data set with descriptive variable names. => OK????
 # 5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable 
 # for each activity and each subject.
 # 
@@ -47,24 +36,30 @@
 # 
 # 'train/subject_train.txt': Each row identifies the subject who performed the activity for each window sample. 
 # Its range is from 1 to 30. 
-# 
-# 'train/Inertial Signals/total_acc_x_train.txt': The acceleration signal from the smartphone accelerometer X axis 
-# in standard gravity units 'g'. Every row shows a 128 element vector. The same description applies for the 
-# 'total_acc_x_train.txt' and 'total_acc_z_train.txt' files for the Y and Z axis. 
-# 
-# 'train/Inertial Signals/body_acc_x_train.txt': The body acceleration signal obtained by subtracting the gravity 
-# from the total acceleration. 
-# 
-# 'train/Inertial Signals/body_gyro_x_train.txt': The angular velocity vector measured by the gyroscope for 
-# each window sample. The units are radians/second. 
 
 
+######################################
+## Load packages
+if (!require("data.table")) {
+  install.packages("data.table")
+}
+if (!require("plyr")) {
+  install.packages("plyr")
+}
+if (!require("dplyr")) {
+  install.packages("dplyr")
+}
+if (!require("reshape2")) {
+  install.packages("reshape2")
+}
 
-library(plyr)
-library(dplyr)
-#library(data.table)
-library(sqldf)
+require("data.table")
+require("plyr")
+require("dplyr")
+require("reshape2")
 
+######################################
+## Set directories and files path
 trainNames <- "train"
 testNames <- "test"
 
@@ -77,71 +72,91 @@ features_file <- paste(rootDir,"features.txt",sep = "/")
 
 trainingSet_file <- paste(trainDir,"/X_", trainNames,".txt",sep = "")
 trainingLabels_file <- paste(trainDir,"/y_", trainNames,".txt",sep = "")
+trainingSubjects_file <- paste(trainDir,"/subject_", trainNames,".txt",sep = "")
 
 testSet_file <- paste(testDir,"/X_", testNames,".txt",sep = "")
 testLabels_file <- paste(testDir,"/y_", testNames,".txt",sep = "")
+testSubjects_file <- paste(testDir,"/subject_", testNames,".txt",sep = "")
 
-features_df <- read.table(features_file,stringsAsFactors = FALSE,header = FALSE,colClasses = c("character"))
+######################################
+## retrieve features
+features_df <- read.table(features_file,stringsAsFactors = FALSE,header = FALSE
+                          ,colClasses = c("character"),col.names = c("col_nb","col_name"))
+features_df <- data.table(features_df)
+## formating column names
+features <- tolower(sub(features_df$col_name, pattern = "\\(\\)",replacement = ""))
+## list of mean/std measurements
+featuresKept <- grep(pattern = "(mean|std)\\(\\)",x = features_df$col_name
+                                 ,ignore.case = TRUE,value = FALSE)
+
+
+######################################
+## retrieve activities
 activity_labels_df <- read.table(activity_labels_file,stringsAsFactors = FALSE
-                                 ,header = FALSE,colClasses = c("character"))
+                                 ,header = FALSE,colClasses = c("character"),col.names = c("act_id","act_label"))
+activity_labels_df <- data.table(activity_labels_df)
 
-trainingSet_df <- read.table(trainingSet_file,stringsAsFactors = FALSE,header = FALSE,colClasses = c("numeric"))
+######################################
+## retrive training set, subjects and labels
+trainingSet_df <- read.table(trainingSet_file,stringsAsFactors = FALSE,header = FALSE
+                             ,colClasses = c("numeric"), col.names = features)
 trainingLabels_df <- read.table(trainingLabels_file,stringsAsFactors = FALSE
-                                ,header = FALSE,colClasses = c("character"))
-testSet_df <- read.table(testSet_file,stringsAsFactors = FALSE,header = FALSE,colClasses = c("numeric"))
-testLabels_df <- read.table(testLabels_file,stringsAsFactors = FALSE,header = FALSE,colClasses = c("character"))
+                                ,header = FALSE,colClasses = c("character"), col.names = c("act_id"))
+trainingSubjects_df <- read.table(trainingSubjects_file,stringsAsFactors = FALSE
+                                ,header = FALSE,colClasses = c("numeric"), col.names = c("subject"))
+trainingSet_df <- select(data.table(trainingSet_df), featuresKept)
+trainingLabels_df <- data.table(trainingLabels_df)
+trainingSubjects_df <- data.table(trainingSubjects_df)
 
-features_df <- tbl_df(features_df)
-activity_labels_df <- tbl_df(activity_labels_df)
-trainingSet_df <- tbl_df(trainingSet_df)
-trainingLabels_df <- tbl_df(trainingLabels_df)
-testSet_df <- tbl_df(testSet_df)
-testLabels_df <- tbl_df(testLabels_df)
+## join/merge data to retrieve activity label 
+trainingAct_df <- plyr::join(x = trainingLabels_df,y = activity_labels_df
+                             ,by = c("act_id"), type = "left", match = "all") 
+trainingAct_df <- data.table(trainingAct_df)
 
-measure_filter <- features_df %>% 
-                  select(id_mes=V1,mes=V2) %>%
-                  filter(grepl(mes,pattern = "mean()|std()")) %>%
-                  mutate(id_mes=as.integer(id_mes))
+## combine the two data tables column-wise
+if (nrow(trainingSubjects_df) == nrow(trainingSet_df) & nrow(trainingAct_df) == nrow(trainingSet_df)) {
+  trainingFullDS <- cbind.data.frame(trainingSubjects_df,trainingAct_df,trainingSet_df)
+  rm(trainingSet_df,trainingLabels_df,trainingAct_df,trainingSubjects_df)
+} else {
+  stop("Training subjects, label and set should have same number of rows")
+}
 
-trainingSet_final <- trainingSet_df %>% select(measure_filter$id_mes)
-colnames(trainingSet_final) <- measure_filter$mes
+######################################
+## retrive test set, subjects and labels
+testSet_df <- read.table(testSet_file,stringsAsFactors = FALSE,header = FALSE
+                             ,colClasses = c("numeric"), col.names = features)
+testLabels_df <- read.table(testLabels_file,stringsAsFactors = FALSE
+                                ,header = FALSE,colClasses = c("character"), col.names = c("act_id"))
+testSubjects_df <- read.table(testSubjects_file,stringsAsFactors = FALSE
+                                  ,header = FALSE,colClasses = c("numeric"), col.names = c("subject"))
+testSet_df <- select(data.table(testSet_df), featuresKept)
+testLabels_df <- data.table(testLabels_df)
+testSubjects_df <- data.table(testSubjects_df)
 
+## join/merge data to retrieve activity label 
+testAct_df <- plyr::join(x = testLabels_df,y = activity_labels_df
+                         ,by = c("act_id"), type = "left", match = "all") 
+testAct_df <- data.table(testAct_df)
 
-# sqldf::sqldf("select V1,V2 from features_df where lower(V2) like '%mean()%' or lower(V2) like '%std()%'")
+## combine the two data tables column-wise
+if (nrow(testSubjects_df) == nrow(testSet_df) & nrow(testAct_df) == nrow(testSet_df)) {
+  testFullDS <- cbind.data.frame(testSubjects_df,testAct_df,testSet_df)
+  rm(testSet_df,testLabels_df,testAct_df,testSubjects_df)
+} else {
+  stop("Test subjects, label and set should have same number of rows")
+}
 
+######################################
+## combine both datasets
+trainingFullDS <- mutate(trainingFullDS,source_data="training")
+testFullDS <- mutate(testFullDS,source_data="test")
 
+fullDS_df <- rbindlist(list(trainingFullDS,testFullDS),use.names = FALSE,fill = FALSE)
+rm(trainingFullDS,testFullDS)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+by_subjectAct <- fullDS_df %>% 
+                  select(everything(), -(act_id), -(source_data)) %>%
+                  group_by(subject, act_label) %>%
+                  summarise_each(funs(mean)) %>%
+                  arrange(subject,act_label)
 
